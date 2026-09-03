@@ -291,7 +291,7 @@ ALTER TABLE venta
 -- ORDS ENABLE SCHEMA                       0
 -- ORDS ENABLE OBJECT                       0
 -- 
--- ERRORS                                   2
+-- ERRORS                                   0
 -- WARNINGS                                 0
 
 -- ============================================================
@@ -304,4 +304,134 @@ ALTER TABLE venta
 --      -> renombrada a detalle_venta_un
 -- El encabezado y el informe de resumen originales de Data Modeler
 -- se conservan sin alterar como evidencia de la generacion.
+-- ============================================================
+
+-- ============================================================
+-- CORRECCIONES Y RESTRICCIONES ADICIONALES (agregadas manualmente)
+-- Estas restricciones no se generan automaticamente al hacer
+-- "Engineer to Relational Model" en Data Modeler; se agregan aqui
+-- para cumplir las reglas de negocio del enunciado.
+-- ============================================================
+
+-- Correccion: direccion_cliente debe admitir nulos (no es un dato
+-- obligatorio segun las reglas de negocio del cliente)
+ALTER TABLE cliente MODIFY ( direccion_cliente NULL );
+
+-- --------------------------------------------------------------
+-- Restricciones UNIQUE de codigos y nombres de catalogos
+-- --------------------------------------------------------------
+ALTER TABLE pais ADD CONSTRAINT pais_codigo_un UNIQUE ( codigo_pais );
+ALTER TABLE pais ADD CONSTRAINT pais_nombre_un UNIQUE ( nombre_pais );
+
+ALTER TABLE tipo_tienda ADD CONSTRAINT tipo_tienda_codigo_un UNIQUE ( codigo_tipo_tienda );
+ALTER TABLE tipo_tienda ADD CONSTRAINT tipo_tienda_nombre_un UNIQUE ( nombre_tipo_tienda );
+
+ALTER TABLE cargo ADD CONSTRAINT cargo_codigo_un UNIQUE ( codigo_cargo );
+ALTER TABLE cargo ADD CONSTRAINT cargo_nombre_un UNIQUE ( nombre_cargo );
+
+ALTER TABLE tipo_identificacion ADD CONSTRAINT tipo_identificacion_codigo_un UNIQUE ( codigo_tipo_identificacion );
+ALTER TABLE tipo_identificacion ADD CONSTRAINT tipo_identificacion_nombre_un UNIQUE ( nombre_tipo_identificacion );
+
+ALTER TABLE categoria ADD CONSTRAINT categoria_codigo_un UNIQUE ( codigo_categoria );
+ALTER TABLE categoria ADD CONSTRAINT categoria_nombre_un UNIQUE ( nombre_categoria );
+
+ALTER TABLE marca ADD CONSTRAINT marca_codigo_un UNIQUE ( codigo_marca );
+ALTER TABLE marca ADD CONSTRAINT marca_nombre_un UNIQUE ( nombre_marca );
+
+ALTER TABLE estado_venta ADD CONSTRAINT estado_venta_nombre_un UNIQUE ( nombre_estado );
+
+ALTER TABLE metodo_pago ADD CONSTRAINT metodo_pago_codigo_un UNIQUE ( codigo_metodo_pago );
+ALTER TABLE metodo_pago ADD CONSTRAINT metodo_pago_nombre_un UNIQUE ( nombre_metodo_pago );
+
+-- --------------------------------------------------------------
+-- Restricciones UNIQUE compuestas (reglas de negocio de ubicacion
+-- e identificacion de clientes)
+-- --------------------------------------------------------------
+
+-- El nombre de un departamento no se repite dentro del mismo pais
+ALTER TABLE departamento
+    ADD CONSTRAINT departamento_pais_nombre_un UNIQUE ( pais_id_pais, nombre_departamento );
+
+-- El nombre de un municipio no se repite dentro del mismo departamento
+ALTER TABLE municipio
+    ADD CONSTRAINT municipio_depto_nombre_un UNIQUE ( departamento_id_departamento, nombre_municipio );
+
+-- La combinacion de tipo y numero de identificacion debe ser unica
+ALTER TABLE cliente
+    ADD CONSTRAINT cliente_tipo_numero_un UNIQUE ( id_tipo_identificacion, numero_identificacion );
+
+-- --------------------------------------------------------------
+-- Restricciones UNIQUE de correo electronico
+-- --------------------------------------------------------------
+
+-- Correo de empleado unico (obligatorio segun regla de negocio)
+ALTER TABLE empleado ADD CONSTRAINT empleado_correo_un UNIQUE ( correo_empleado );
+
+-- Correo de cliente unico cuando esta registrado
+-- (Oracle permite multiples valores NULL en una columna UNIQUE,
+-- por lo que esta restriccion no afecta a los clientes sin correo)
+ALTER TABLE cliente ADD CONSTRAINT cliente_correo_un UNIQUE ( correo_cliente );
+
+-- --------------------------------------------------------------
+-- Restricciones CHECK
+-- --------------------------------------------------------------
+
+ALTER TABLE producto ADD CONSTRAINT producto_precio_ck CHECK ( precio_vigente > 0 );
+ALTER TABLE producto ADD CONSTRAINT producto_existencia_ck CHECK ( existencia_actual >= 0 );
+
+ALTER TABLE detalle_venta ADD CONSTRAINT detalle_venta_cantidad_ck CHECK ( cantidad > 0 );
+ALTER TABLE detalle_venta ADD CONSTRAINT detalle_venta_precio_ck CHECK ( precio_unitario > 0 );
+
+-- El subtotal se obtiene de multiplicar cantidad por precio unitario;
+-- se puede validar con CHECK porque solo depende de columnas de la
+-- misma fila (no cruza tablas)
+ALTER TABLE detalle_venta
+    ADD CONSTRAINT detalle_venta_subtotal_ck CHECK ( subtotal = cantidad * precio_unitario );
+
+ALTER TABLE pago ADD CONSTRAINT pago_monto_ck CHECK ( monto_pago > 0 );
+
+-- Nota: la regla "la fecha de contratacion no puede ser posterior a la
+-- fecha actual" (tabla empleado) NO se implementa como CHECK porque
+-- Oracle no permite funciones no deterministicas (SYSDATE) dentro de
+-- un CHECK constraint (error ORA-02436). Se valida mediante consulta
+-- SQL (ver seccion de consultas de validacion en el manual tecnico).
+
+-- ============================================================
+-- RENOMBRADO DE LLAVES FORANEAS
+-- Data Modeler genero las columnas FK con el nombre de la tabla
+-- padre como prefijo (ej. municipio_id_municipio). Se renombran
+-- aqui para que coincidan con el diccionario de datos y con el
+-- estilo usado en el resto de la solucion (id_<entidad>).
+-- RENAME COLUMN actualiza automaticamente las referencias en las
+-- constraints PK, FK, UNIQUE y CHECK ya creadas; no es necesario
+-- recrearlas.
+-- ============================================================
+
+ALTER TABLE departamento RENAME COLUMN pais_id_pais TO id_pais;
+ALTER TABLE municipio RENAME COLUMN departamento_id_departamento TO id_departamento;
+
+ALTER TABLE tienda RENAME COLUMN municipio_id_municipio TO id_municipio;
+ALTER TABLE tienda RENAME COLUMN tipo_tienda_id_tipo_tienda TO id_tipo_tienda;
+
+ALTER TABLE empleado RENAME COLUMN tienda_id_tienda TO id_tienda;
+ALTER TABLE empleado RENAME COLUMN cargo_id_cargo TO id_cargo;
+
+ALTER TABLE cliente RENAME COLUMN municipio_id_municipio TO id_municipio;
+
+ALTER TABLE producto RENAME COLUMN categoria_id_categoria TO id_categoria;
+ALTER TABLE producto RENAME COLUMN marca_id_marca TO id_marca;
+
+ALTER TABLE venta RENAME COLUMN cliente_id_cliente TO id_cliente;
+ALTER TABLE venta RENAME COLUMN tienda_id_tienda TO id_tienda;
+ALTER TABLE venta RENAME COLUMN empleado_id_empleado TO id_empleado;
+ALTER TABLE venta RENAME COLUMN estado_venta_id_estado TO id_estado;
+
+ALTER TABLE detalle_venta RENAME COLUMN venta_id_venta TO id_venta;
+ALTER TABLE detalle_venta RENAME COLUMN producto_id_producto TO id_producto;
+
+ALTER TABLE pago RENAME COLUMN venta_id_venta TO id_venta;
+ALTER TABLE pago RENAME COLUMN metodo_pago_id_metodo_pago TO id_metodo_pago;
+
+-- ============================================================
+-- Fin de correcciones
 -- ============================================================
